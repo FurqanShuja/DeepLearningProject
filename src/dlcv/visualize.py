@@ -81,6 +81,7 @@ def main(cfg):
     state_dict = torch.load(model_path, map_location=device)
     state_dict = strip_module_prefix(state_dict)
     model.load_state_dict(state_dict)
+    model.to(device)
 
     evaluate_one_epoch(model, test_loader, device, cfg.TRAIN.RESULTS_CSV, 5, cfg.TEST.SCORE_THRESHOLD, cfg.TEST.IOU_THRESHOLD)
 

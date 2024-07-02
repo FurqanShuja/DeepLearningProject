@@ -69,7 +69,7 @@ def main(cfg, args):
 
     optimizer = optim.AdamW(model.parameters(), lr=cfg.TRAIN.BASE_LR, weight_decay=cfg.TRAIN.WEIGHT_DECAY)
     scheduler = OneCycleLR(optimizer, max_lr=cfg.TRAIN.BASE_LR, steps_per_epoch=len(train_loader), pct_start=cfg.TRAIN.PCT_START, anneal_strategy=cfg.TRAIN.ANNEAL_STRATEGY, epochs=cfg.TRAIN.EPOCHS)
-    scheduler = WarmupLR(scheduler, cfg.TRAIN.WARMUP_LR, cfg.TRAIN.WARMUP_EPOCHS, warmup_strategy='cos')
+    # scheduler = WarmupLR(scheduler, cfg.TRAIN.WARMUP_LR, cfg.TRAIN.WARMUP_EPOCHS, warmup_strategy='cos')
 
     if args.distributed:
         model = DDP(model, device_ids=[args.gpu])

@@ -19,8 +19,8 @@ def get_cfg_defaults():
     _C.TRAIN.ANNOTATIONS_PATH = "/kaggle/input/construction-industry-steel-ordering-lists-cisol/cisol_TD-TSR/TD-TSR/annotations/train.json"
 
     # Warmup Options
-    _C.TRAIN.WARMUP_LR = 0.004
-    _C.TRAIN.WARMUP_EPOCHS = 1
+    # _C.TRAIN.WARMUP_LR = 0.004
+    # _C.TRAIN.WARMUP_EPOCHS = 1
 
     # Scheduling Options
     _C.TRAIN.PCT_START = 0.3

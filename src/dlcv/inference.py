@@ -11,6 +11,28 @@ from dlcv.dataset2 import Dataset2
 from dlcv.model import fasterrcnn_model, fcos_model, retinanet_model
 from torch.utils.data import DataLoader
 
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+
+def init_distributed_mode(args):
+    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+        args.rank = int(os.environ['RANK'])
+        args.world_size = int(os.environ['WORLD_SIZE'])
+        args.gpu = int(os.environ['LOCAL_RANK'])
+    else:
+        print('Not using distributed mode')
+        args.distributed = False
+        return
+
+    args.distributed = True
+    torch.cuda.set_device(args.gpu)
+    dist.init_process_group(backend='nccl', init_method=args.dist_url,
+                            world_size=args.world_size, rank=args.rank)
+    dist.barrier()
+
+def cleanup():
+    dist.destroy_process_group()
+
 def evaluate_one_epoch(model, data_loader, device, save_dir, score_threshold, iou_threshold):
     model.eval()
     results = []
@@ -62,7 +84,10 @@ def evaluate_one_epoch(model, data_loader, device, save_dir, score_threshold, io
 
     print(f"Results saved to {results_json_path}")
 
-def main(cfg, model=None):
+def main(cfg, args):
+    if args.distributed:
+        init_distributed_mode(args)
+
     device = torch.device('cuda' if torch.cuda.is_available() and not cfg.TRAIN.NO_CUDA else 'cpu')
 
     transform_test = get_transforms(train=False, 
@@ -73,30 +98,44 @@ def main(cfg, model=None):
 
     print(f"Test dataset length: {len(test_dataset)}")
 
-    test_loader = DataLoader(test_dataset, batch_size=cfg.TEST.BATCH_SIZE, shuffle=True, collate_fn=custom_collate_fn)
+    if args.distributed:
+        test_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset)
+    else:
+        test_sampler = torch.utils.data.RandomSampler(test_dataset)
+        
+    test_loader = DataLoader(test_dataset, batch_size=cfg.TEST.BATCH_SIZE, sampler=test_sampler, collate_fn=custom_collate_fn, num_workers=4, pin_memory=True)
 
-    if model is None:
-        model_path = os.path.join(cfg.TRAIN.SAVE_MODEL_PATH, cfg.TRAIN.RUN_NAME + ".pth")
-        # Select model based on configuration
-        if cfg.MODEL.TYPE == 'fasterrcnn':
-            model = fasterrcnn_model(num_classes=cfg.MODEL.NUM_CLASSES)
-        elif cfg.MODEL.TYPE == 'fcos':
-            model = fcos_model(num_classes=cfg.MODEL.NUM_CLASSES)
-        elif cfg.MODEL.TYPE == 'retinanet':
-            model = retinanet_model(num_classes=cfg.MODEL.NUM_CLASSES)
-        else:
-            raise ValueError(f"Unsupported model type: {cfg.MODEL.TYPE}")
-        model.load_state_dict(torch.load(model_path, map_location=device))
+    model_path = os.path.join(cfg.TRAIN.SAVE_MODEL_PATH, cfg.TRAIN.RUN_NAME + ".pth")
+    # Select model based on configuration
+    if cfg.MODEL.TYPE == 'fasterrcnn':
+        model = fasterrcnn_model(num_classes=cfg.MODEL.NUM_CLASSES)
+    elif cfg.MODEL.TYPE == 'fcos':
+        model = fcos_model(num_classes=cfg.MODEL.NUM_CLASSES)
+    elif cfg.MODEL.TYPE == 'retinanet':
+        model = retinanet_model(num_classes=cfg.MODEL.NUM_CLASSES)
+    else:
+        raise ValueError(f"Unsupported model type: {cfg.MODEL.TYPE}")
     
+    model.load_state_dict(torch.load(model_path, map_location=device))
     model.to(device)
+
+    if args.distributed:
+        model = DDP(model, device_ids=[args.gpu])
 
     evaluate_one_epoch(model, test_loader, device, cfg.TRAIN.RESULTS_CSV, cfg.TEST.SCORE_THRESHOLD, cfg.TEST.IOU_THRESHOLD)
 
+    if args.distributed:
+        cleanup()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate the Faster R-CNN model.')
     parser.add_argument('--config', type=str, help='Path to config file', default=None)
     parser.add_argument('--opts', nargs='*', help='Modify config options using the command line')
+    parser.add_argument('--dist-url', default='env://', type=str, help='url used to set up distributed training')
+    parser.add_argument('--world-size', default=1, type=int, help='number of distributed processes')
+    parser.add_argument('--rank', default=0, type=int, help='rank of the current process')
+    parser.add_argument('--gpu', default=0, type=int, help='GPU id to use')
+    parser.add_argument('--distributed', action='store_true', help='Use distributed training')
 
     args = parser.parse_args()
 
@@ -113,4 +152,4 @@ if __name__ == '__main__':
                 d = d[key]
             d[key_list[-1]] = eval(v)
 
-    main(cfg)
+    main(cfg, args)

@@ -47,6 +47,15 @@ def evaluate_one_epoch(model, data_loader, device, save_dir, max_images, score_t
                     plot_image_with_boxes(images[i].cpu(), boxes, labels, scores, image_save_path)
                     save_count += 1
 
+def strip_module_prefix(state_dict):
+    new_state_dict = {}
+    for k, v in state_dict.items():
+        if k.startswith("module."):
+            new_state_dict[k[7:]] = v
+        else:
+            new_state_dict[k] = v
+    return new_state_dict
+
 def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() and not cfg.TRAIN.NO_CUDA else 'cpu')
 
@@ -69,8 +78,9 @@ def main(cfg):
         model = retinanet_model(num_classes=cfg.MODEL.NUM_CLASSES)
     else:
         raise ValueError(f"Unsupported model type: {cfg.MODEL.TYPE}")
-    model.load_state_dict(torch.load(model_path, map_location=device))
-    model.to(device)
+    state_dict = torch.load(model_path, map_location=device)
+    state_dict = strip_module_prefix(state_dict)
+    model.load_state_dict(state_dict)
 
     evaluate_one_epoch(model, test_loader, device, cfg.TRAIN.RESULTS_CSV, 5, cfg.TEST.SCORE_THRESHOLD, cfg.TEST.IOU_THRESHOLD)
 

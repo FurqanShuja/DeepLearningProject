@@ -68,7 +68,7 @@ def json_serializable(obj):
     else:
         return obj
 
-def save_model(model, path):
+def save_model(state_dict, path):
     """
     Saves the model state_dict to a specified file.
 
@@ -80,7 +80,7 @@ def save_model(model, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     
     # Save the model's state_dict
-    torch.save(model.state_dict(), path + ".pth")
+    torch.save(state_dict, path + ".pth")
 
 def get_transforms(train=True, image_height=3509, image_width=2480, horizontal_flip_prob=0, rotation_degrees=0):
     if train:

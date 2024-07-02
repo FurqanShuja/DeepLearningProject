@@ -82,7 +82,9 @@ def main(cfg, args):
     if args.distributed:
         model = DDP(model, device_ids=[args.gpu])
 
-    train_losses, val_losses, accuracies = train_and_evaluate_model(model, train_loader, val_loader, optimizer, cfg.TRAIN.EPOCHS, device, scheduler)
+    criterion = torch.nn.CrossEntropyLoss()
+
+    train_losses, val_losses, accuracies = train_and_evaluate_model(model, train_loader, val_loader, criterion, optimizer, cfg.TRAIN.EPOCHS, device, scheduler)
 
     write_results_to_csv(cfg.TRAIN.RESULTS_CSV + "/" + cfg.TRAIN.RUN_NAME, train_losses)
 

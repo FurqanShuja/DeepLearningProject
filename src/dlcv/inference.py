@@ -84,6 +84,15 @@ def evaluate_one_epoch(model, data_loader, device, save_dir, score_threshold, io
 
     print(f"Results saved to {results_json_path}")
 
+def strip_module_prefix(state_dict):
+    new_state_dict = {}
+    for k, v in state_dict.items():
+        if k.startswith("module."):
+            new_state_dict[k[7:]] = v
+        else:
+            new_state_dict[k] = v
+    return new_state_dict
+
 def main(cfg, args):
     if args.distributed:
         init_distributed_mode(args)
@@ -116,7 +125,9 @@ def main(cfg, args):
     else:
         raise ValueError(f"Unsupported model type: {cfg.MODEL.TYPE}")
     
-    model.load_state_dict(torch.load(model_path, map_location=device))
+    state_dict = torch.load(model_path, map_location=device)
+    state_dict = strip_module_prefix(state_dict)
+    model.load_state_dict(state_dict)
     model.to(device)
 
     if args.distributed:
@@ -126,6 +137,7 @@ def main(cfg, args):
 
     if args.distributed:
         cleanup()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate the model.')

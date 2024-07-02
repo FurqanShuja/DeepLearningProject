@@ -34,12 +34,12 @@ def init_distributed_mode(args):
 def cleanup():
     dist.destroy_process_group()
 
-def combine_state_dicts(model, ddp_model=None):
-    combined_state_dict = model.state_dict()
-    if ddp_model is not None:
-        ddp_state_dict = ddp_model.state_dict()
-        combined_state_dict.update(ddp_state_dict)
-    return combined_state_dict
+# def combine_state_dicts(model, ddp_model=None):
+#     combined_state_dict = model.state_dict()
+#     if ddp_model is not None:
+#         ddp_state_dict = ddp_model.state_dict()
+#         combined_state_dict.update(ddp_state_dict)
+#     return combined_state_dict
 
 def main(cfg, args):
     if args.distributed:
@@ -78,22 +78,22 @@ def main(cfg, args):
     scheduler = OneCycleLR(optimizer, max_lr=cfg.TRAIN.BASE_LR, steps_per_epoch=len(train_loader), pct_start=cfg.TRAIN.PCT_START, anneal_strategy=cfg.TRAIN.ANNEAL_STRATEGY, epochs=cfg.TRAIN.EPOCHS)
     # scheduler = WarmupLR(scheduler, cfg.TRAIN.WARMUP_LR, cfg.TRAIN.WARMUP_EPOCHS, warmup_strategy='cos')
 
-    ddp_model = None
     if args.distributed:
-        ddp_model = DDP(model, device_ids=[args.gpu])
+        model = DDP(model, device_ids=[args.gpu])
 
-    train_losses = train_and_evaluate_model(ddp_model if args.distributed else model, train_loader, optimizer, cfg.TRAIN.EPOCHS, device, scheduler)
+    train_losses = train_and_evaluate_model(model, train_loader, optimizer, cfg.TRAIN.EPOCHS, device, scheduler)
 
     write_results_to_csv(cfg.TRAIN.RESULTS_CSV + "/" + cfg.TRAIN.RUN_NAME, train_losses)
 
     # Save results and model only if this is the primary process
     if args.rank == 0:  # Only save on the main process
-        combined_state_dict = combine_state_dicts(model, ddp_model if args.distributed else None)
+        state_dict = model.module.state_dict() if args.distributed else model.state_dict()
         if cfg.TRAIN.SAVE_MODEL_PATH:
-            save_model(combined_state_dict, cfg.TRAIN.SAVE_MODEL_PATH + "/" + cfg.TRAIN.RUN_NAME)
+            save_model(state_dict, cfg.TRAIN.SAVE_MODEL_PATH + "/" + cfg.TRAIN.RUN_NAME)
             
     if args.distributed:
         cleanup()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train the Faster R-CNN model.')

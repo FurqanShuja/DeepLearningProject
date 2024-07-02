@@ -45,25 +45,27 @@ def main(cfg, args):
                                      image_width=cfg.TRAIN.IMAGE_WIDTH, 
                                      horizontal_flip_prob=cfg.TRAIN.HORIZONTAL_FLIP_PROB, 
                                      rotation_degrees=cfg.TRAIN.ROTATION_DEGREES)
+    
+    transform_val = get_transforms(train=False, 
+                                     image_height=cfg.TRAIN.IMAGE_HEIGHT, 
+                                     image_width=cfg.TRAIN.IMAGE_WIDTH, 
+                                     horizontal_flip_prob=cfg.TRAIN.HORIZONTAL_FLIP_PROB, 
+                                     rotation_degrees=cfg.TRAIN.ROTATION_DEGREES)
                                      
     train_dataset = Dataset1(root=cfg.TRAIN.DATA_ROOT, split='train', transform=transform_train)
+    val_dataset = Dataset1(root=cfg.TRAIN.DATA_ROOT, split='val', transform=transform_val)
 
-    # Split the dataset into training and validation sets
-    train_size = int(0.9 * len(train_dataset))
-    val_size = len(train_dataset) - train_size
-    train_subset, val_subset = random_split(train_dataset, [train_size, val_size])
-
-    print(f"Train dataset length: {len(train_subset)}, Validation dataset length: {len(val_subset)}")
+    print(f"Train dataset length: {len(train_dataset)}, Validation dataset length: {len(val_dataset)}")
 
     if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_subset)
-        val_sampler = torch.utils.data.distributed.DistributedSampler(val_subset)
+        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+        val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset)
     else:
-        train_sampler = torch.utils.data.RandomSampler(train_subset)
-        val_sampler = torch.utils.data.SequentialSampler(val_subset)
+        train_sampler = torch.utils.data.RandomSampler(train_dataset)
+        val_sampler = torch.utils.data.SequentialSampler(val_dataset)
         
-    train_loader = DataLoader(train_subset, batch_size=cfg.TRAIN.BATCH_SIZE, sampler=train_sampler, collate_fn=custom_collate_fn, num_workers=4, pin_memory=True)
-    val_loader = DataLoader(val_subset, batch_size=cfg.TRAIN.BATCH_SIZE, sampler=val_sampler, collate_fn=custom_collate_fn, num_workers=4, pin_memory=True)
+    train_loader = DataLoader(train_dataset, batch_size=cfg.TRAIN.BATCH_SIZE, sampler=train_sampler, collate_fn=custom_collate_fn, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=cfg.TRAIN.BATCH_SIZE, sampler=val_sampler, collate_fn=custom_collate_fn, num_workers=4, pin_memory=True)
 
     # Select model based on configuration
     if cfg.MODEL.TYPE == 'fasterrcnn':

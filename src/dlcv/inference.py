@@ -106,15 +106,15 @@ def main(cfg, args):
     test_loader = DataLoader(test_dataset, batch_size=cfg.TEST.BATCH_SIZE, sampler=test_sampler, collate_fn=custom_collate_fn, num_workers=4, pin_memory=True)
 
     model_path = os.path.join(cfg.TRAIN.SAVE_MODEL_PATH, cfg.TRAIN.RUN_NAME + ".pth")
-    # Select model based on configuration
-    if cfg.MODEL.TYPE == 'fasterrcnn':
-        model = fasterrcnn_model(num_classes=cfg.MODEL.NUM_CLASSES)
-    elif cfg.MODEL.TYPE == 'fcos':
-        model = fcos_model(num_classes=cfg.MODEL.NUM_CLASSES)
-    elif cfg.MODEL.TYPE == 'retinanet':
-        model = retinanet_model(num_classes=cfg.MODEL.NUM_CLASSES)
-    else:
-        raise ValueError(f"Unsupported model type: {cfg.MODEL.TYPE}")
+    # # Select model based on configuration
+    # if cfg.MODEL.TYPE == 'fasterrcnn':
+    #     model = fasterrcnn_model(num_classes=cfg.MODEL.NUM_CLASSES)
+    # elif cfg.MODEL.TYPE == 'fcos':
+    #     model = fcos_model(num_classes=cfg.MODEL.NUM_CLASSES)
+    # elif cfg.MODEL.TYPE == 'retinanet':
+    #     model = retinanet_model(num_classes=cfg.MODEL.NUM_CLASSES)
+    # else:
+    #     raise ValueError(f"Unsupported model type: {cfg.MODEL.TYPE}")
     
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.to(device)

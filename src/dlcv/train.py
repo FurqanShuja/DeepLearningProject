@@ -2,7 +2,7 @@ import argparse
 import torch
 import os
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from torch.optim.lr_scheduler import OneCycleLR
 from torch_warmup_lr import WarmupLR
 
@@ -34,13 +34,6 @@ def init_distributed_mode(args):
 def cleanup():
     dist.destroy_process_group()
 
-# def combine_state_dicts(model, ddp_model=None):
-#     combined_state_dict = model.state_dict()
-#     if ddp_model is not None:
-#         ddp_state_dict = ddp_model.state_dict()
-#         combined_state_dict.update(ddp_state_dict)
-#     return combined_state_dict
-
 def main(cfg, args):
     if args.distributed:
         init_distributed_mode(args)
@@ -55,14 +48,22 @@ def main(cfg, args):
                                      
     train_dataset = Dataset1(root=cfg.TRAIN.DATA_ROOT, split='train', transform=transform_train)
 
-    print(f"Train dataset length: {len(train_dataset)}")
+    # Split the dataset into training and validation sets
+    train_size = int(0.9 * len(train_dataset))
+    val_size = len(train_dataset) - train_size
+    train_subset, val_subset = random_split(train_dataset, [train_size, val_size])
+
+    print(f"Train dataset length: {len(train_subset)}, Validation dataset length: {len(val_subset)}")
 
     if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+        train_sampler = torch.utils.data.distributed.DistributedSampler(train_subset)
+        val_sampler = torch.utils.data.distributed.DistributedSampler(val_subset)
     else:
-        train_sampler = torch.utils.data.RandomSampler(train_dataset)
+        train_sampler = torch.utils.data.RandomSampler(train_subset)
+        val_sampler = torch.utils.data.SequentialSampler(val_subset)
         
-    train_loader = DataLoader(train_dataset, batch_size=cfg.TRAIN.BATCH_SIZE, sampler=train_sampler, collate_fn=custom_collate_fn, num_workers=4, pin_memory=True)
+    train_loader = DataLoader(train_subset, batch_size=cfg.TRAIN.BATCH_SIZE, sampler=train_sampler, collate_fn=custom_collate_fn, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_subset, batch_size=cfg.TRAIN.BATCH_SIZE, sampler=val_sampler, collate_fn=custom_collate_fn, num_workers=4, pin_memory=True)
 
     # Select model based on configuration
     if cfg.MODEL.TYPE == 'fasterrcnn':
@@ -81,7 +82,7 @@ def main(cfg, args):
     if args.distributed:
         model = DDP(model, device_ids=[args.gpu])
 
-    train_losses = train_and_evaluate_model(model, train_loader, optimizer, cfg.TRAIN.EPOCHS, device, scheduler)
+    train_losses, val_losses, accuracies = train_and_evaluate_model(model, train_loader, val_loader, optimizer, cfg.TRAIN.EPOCHS, device, scheduler)
 
     write_results_to_csv(cfg.TRAIN.RESULTS_CSV + "/" + cfg.TRAIN.RUN_NAME, train_losses)
 

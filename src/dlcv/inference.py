@@ -62,7 +62,7 @@ def evaluate_one_epoch(model, data_loader, device, save_dir, score_threshold, io
 
     print(f"Results saved to {results_json_path}")
 
-def main(cfg):
+def main(cfg, model=None):
     device = torch.device('cuda' if torch.cuda.is_available() and not cfg.TRAIN.NO_CUDA else 'cpu')
 
     transform_test = get_transforms(train=False, 
@@ -75,20 +75,23 @@ def main(cfg):
 
     test_loader = DataLoader(test_dataset, batch_size=cfg.TEST.BATCH_SIZE, shuffle=True, collate_fn=custom_collate_fn)
 
-    model_path = os.path.join(cfg.TRAIN.SAVE_MODEL_PATH, cfg.TRAIN.RUN_NAME + ".pth")
+    if model is None:
+        model_path = os.path.join(cfg.TRAIN.SAVE_MODEL_PATH, cfg.TRAIN.RUN_NAME + ".pth")
         # Select model based on configuration
-    if cfg.MODEL.TYPE == 'fasterrcnn':
-        model = fasterrcnn_model(num_classes=cfg.MODEL.NUM_CLASSES)
-    elif cfg.MODEL.TYPE == 'fcos':
-        model = fcos_model(num_classes=cfg.MODEL.NUM_CLASSES)
-    elif cfg.MODEL.TYPE == 'retinanet':
-        model = retinanet_model(num_classes=cfg.MODEL.NUM_CLASSES)
-    else:
-        raise ValueError(f"Unsupported model type: {cfg.MODEL.TYPE}")
-    model.load_state_dict(torch.load(model_path, map_location=device))
+        if cfg.MODEL.TYPE == 'fasterrcnn':
+            model = fasterrcnn_model(num_classes=cfg.MODEL.NUM_CLASSES)
+        elif cfg.MODEL.TYPE == 'fcos':
+            model = fcos_model(num_classes=cfg.MODEL.NUM_CLASSES)
+        elif cfg.MODEL.TYPE == 'retinanet':
+            model = retinanet_model(num_classes=cfg.MODEL.NUM_CLASSES)
+        else:
+            raise ValueError(f"Unsupported model type: {cfg.MODEL.TYPE}")
+        model.load_state_dict(torch.load(model_path, map_location=device))
+    
     model.to(device)
 
     evaluate_one_epoch(model, test_loader, device, cfg.TRAIN.RESULTS_CSV, cfg.TEST.SCORE_THRESHOLD, cfg.TEST.IOU_THRESHOLD)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate the Faster R-CNN model.')

@@ -52,6 +52,7 @@ def evaluate_one_epoch(model, data_loader, criterion, device):
 
             outputs = model(images)
 
+            # Ensure loss_dict is computed correctly
             loss_dict = model(images, targets)
             if isinstance(loss_dict, dict):
                 losses = sum(loss for loss in loss_dict.values())
@@ -62,7 +63,7 @@ def evaluate_one_epoch(model, data_loader, criterion, device):
 
             total_loss += losses.item()
 
-            # Assume outputs and targets have the same length
+            # Calculate accuracy
             for output, target in zip(outputs, targets):
                 pred_boxes = output['boxes']
                 pred_labels = output['labels']

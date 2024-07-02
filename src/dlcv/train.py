@@ -79,11 +79,11 @@ def main(cfg, args):
     write_results_to_csv(cfg.TRAIN.RESULTS_CSV + "/" + cfg.TRAIN.RUN_NAME, train_losses)
 
     # Save results and model only if this is the primary process
-    if args.rank == 0:
-        write_results_to_csv(cfg.TRAIN.RESULTS_CSV + "/" + cfg.TRAIN.RUN_NAME, train_losses)
+    
+    write_results_to_csv(cfg.TRAIN.RESULTS_CSV + "/" + cfg.TRAIN.RUN_NAME, train_losses)
 
-        if cfg.TRAIN.SAVE_MODEL_PATH:
-            save_model(model, cfg.TRAIN.SAVE_MODEL_PATH + "/" + cfg.TRAIN.RUN_NAME)
+    if cfg.TRAIN.SAVE_MODEL_PATH:
+        save_model(model, cfg.TRAIN.SAVE_MODEL_PATH + "/" + cfg.TRAIN.RUN_NAME)
             
     if args.distributed:
         cleanup()

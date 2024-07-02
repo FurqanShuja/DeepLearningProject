@@ -99,7 +99,7 @@ def main(cfg, args):
     print(f"Test dataset length: {len(test_dataset)}")
 
     if args.distributed:
-        test_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset)
+        test_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset, num_replicas=args.world_size, rank=args.rank)
     else:
         test_sampler = torch.utils.data.RandomSampler(test_dataset)
         
@@ -128,7 +128,7 @@ def main(cfg, args):
         cleanup()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Evaluate the Faster R-CNN model.')
+    parser = argparse.ArgumentParser(description='Evaluate the model.')
     parser.add_argument('--config', type=str, help='Path to config file', default=None)
     parser.add_argument('--opts', nargs='*', help='Modify config options using the command line')
     parser.add_argument('--dist-url', default='env://', type=str, help='url used to set up distributed training')
